@@ -5,6 +5,14 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter as _, EventTarget, Runtime, WebviewWindow, Window};
 
 pub const STORE_CONFIG_CHANGE_EVENT: &str = "tauri-store://config-change";
+
+/// Owned config payload for deferred emit (avoids holding store lock during emit).
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ConfigPayloadOwned {
+  id: StoreId,
+  config: StoreOptions,
+}
 pub const STORE_STATE_CHANGE_EVENT: &str = "tauri-store://state-change";
 pub const STORE_UNLOAD_EVENT: &str = "tauri-store://unload";
 
@@ -67,7 +75,6 @@ where
   app.emit_filter(event, payload, |target| {
     matches!(target, EventTarget::WebviewWindow { .. })
   })?;
-
   Ok(())
 }
 
@@ -81,7 +88,6 @@ where
   app.emit_filter(event, payload, |target| {
     matches!(target, EventTarget::WebviewWindow { label } if f(label))
   })?;
-
   Ok(())
 }
 
@@ -123,6 +129,32 @@ impl From<Option<String>> for EventSource {
   fn from(source: Option<String>) -> Self {
     Self(source)
   }
+}
+
+/// Schedules config-change emit on the main thread to avoid deadlock when the store lock
+/// is held during window creation (`emit_filter` blocks on window manager).
+pub(crate) fn emit_config_change_deferred<R, S>(
+  app: &AppHandle<R>,
+  id: StoreId,
+  config: StoreOptions,
+  source: S,
+) -> Result<()>
+where
+  R: Runtime,
+  S: Into<EventSource>,
+{
+  let app_for_closure = app.clone();
+  let source: EventSource = source.into();
+  let payload = ConfigPayloadOwned { id, config };
+  app.run_on_main_thread(move || {
+    let _ = emit(
+      &app_for_closure,
+      STORE_CONFIG_CHANGE_EVENT,
+      &payload,
+      source,
+    );
+  })?;
+  Ok(())
 }
 
 impl From<&WebviewWindow> for EventSource {

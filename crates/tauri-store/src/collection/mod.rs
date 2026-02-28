@@ -63,19 +63,19 @@ where
     let id = StoreId::from(id.as_ref());
     let rid = match self.rid(&id) {
       Some(rid) => rid,
-      None => self.load_store(id)?,
+      None => self.load_store(&id)?,
     };
 
     StoreResource::get(self.handle.app(), rid)
   }
 
-  fn load_store(&self, id: StoreId) -> Result<ResourceId> {
-    let (rid, resource) = Store::load(self.handle.app(), &id)?;
+  fn load_store(&self, id: &StoreId) -> Result<ResourceId> {
+    let (rid, resource) = Store::load(self.handle.app(), id)?;
     if let Some(on_load) = &self.on_load {
       resource.locked(|store| on_load(store))?;
     }
 
-    self.stores.insert(id, rid);
+    self.stores.insert(id.clone(), rid);
     Ok(rid)
   }
 

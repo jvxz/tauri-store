@@ -62,7 +62,8 @@ where
   where
     F: FnOnce(&mut Store<R, C>) -> T,
   {
-    f(&mut *self.inner.lock().unwrap())
+    let mut guard = self.inner.lock().unwrap();
+    f(&mut *guard)
   }
 }
 

@@ -8,10 +8,7 @@ mod watch;
 
 use crate::collection::CollectionMarker;
 use crate::error::{Error, Result};
-use crate::event::{
-  emit, ConfigPayload, EventSource, StatePayload, STORE_CONFIG_CHANGE_EVENT,
-  STORE_STATE_CHANGE_EVENT,
-};
+use crate::event::{emit, emit_config_change_deferred, EventSource, StatePayload, STORE_STATE_CHANGE_EVENT};
 use crate::manager::ManagerExt;
 use crate::StoreCollection;
 use options::set_options;
@@ -71,10 +68,12 @@ where
   C: CollectionMarker,
 {
   pub(crate) fn load(app: &AppHandle<R>, id: impl AsRef<str>) -> Result<ResourceTuple<R, C>> {
-    let id = StoreId::from(id.as_ref());
+    let id_str = id.as_ref();
+    let id = StoreId::from(id_str);
     let collection = app.store_collection_with_marker::<C>();
     let marshaler = collection.marshaler_table.get(&id);
     let path = make_path::<R, C>(&collection, &id, marshaler.extension());
+
     let state = match fs::read(&path) {
       Ok(bytes) => marshaler
         .deserialize(&bytes)
@@ -85,7 +84,7 @@ where
 
     let mut store = Self {
       app: app.clone(),
-      id,
+      id: id.clone(),
       state,
       save_on_change: false,
       save_on_exit: true,
@@ -102,13 +101,15 @@ where
   }
 
   fn run_pending_migrations(&mut self) -> Result<()> {
-    self
+    let res = self
       .app
       .store_collection_with_marker::<C>()
       .migrator
       .lock()
       .expect("migrator is poisoned")
-      .migrate::<R, C>(&self.app, &self.id, &mut self.state)
+      .migrate::<R, C>(&self.app, &self.id, &mut self.state);
+
+    res
   }
 
   /// The id of the store.
@@ -455,12 +456,7 @@ where
   }
 
   fn emit_config_change(&self, source: impl Into<EventSource>) -> Result<()> {
-    emit(
-      &self.app,
-      STORE_CONFIG_CHANGE_EVENT,
-      &ConfigPayload::from(self),
-      source,
-    )
+    emit_config_change_deferred(&self.app, self.id.clone(), StoreOptions::from(self), source)
   }
 
   /// Calls all watchers currently attached to the store.

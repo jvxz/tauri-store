@@ -63,7 +63,7 @@ pub(crate) async fn destroy<R>(app: AppHandle<R>, id: StoreId) -> Result<()>
 where
   R: Runtime,
 {
-  app.pinia().destroy(id)
+  spawn_blocking(move || app.pinia().destroy(id)).await?
 }
 
 #[tauri::command]
@@ -95,7 +95,7 @@ pub(crate) async fn get_store_path<R>(app: AppHandle<R>, id: StoreId) -> Result<
 where
   R: Runtime,
 {
-  app.pinia().with_store(id, |store| store.path())
+  spawn_blocking(move || app.pinia().with_store(id, |store| store.path())).await?
 }
 
 #[tauri::command]
@@ -103,9 +103,12 @@ pub(crate) async fn get_save_strategy<R>(app: AppHandle<R>, id: StoreId) -> Resu
 where
   R: Runtime,
 {
-  app
-    .pinia()
-    .with_store(id, |store| store.save_strategy())
+  spawn_blocking(move || {
+    app
+      .pinia()
+      .with_store(id, |store| store.save_strategy())
+  })
+  .await?
 }
 
 #[tauri::command]
@@ -113,7 +116,7 @@ pub(crate) async fn get_store_state<R>(app: AppHandle<R>, id: StoreId) -> Result
 where
   R: Runtime,
 {
-  app.pinia().raw_state(id)
+  spawn_blocking(move || app.pinia().raw_state(id)).await?
 }
 
 #[tauri::command]
@@ -134,11 +137,14 @@ pub(crate) async fn patch<R>(window: WebviewWindow<R>, id: StoreId, state: Store
 where
   R: Runtime,
 {
-  let app = window.app_handle();
+  let app = window.app_handle().clone();
   let label = window.label().to_owned();
-  app
-    .pinia()
-    .with_store(id, move |store| store.patch_with_source(state, label))?
+  spawn_blocking(move || {
+    app
+      .pinia()
+      .with_store(id, move |store| store.patch_with_source(state, label))
+  })
+  .await??
 }
 
 #[tauri::command]
@@ -146,7 +152,7 @@ pub(crate) async fn save<R>(app: AppHandle<R>, id: StoreId) -> Result<()>
 where
   R: Runtime,
 {
-  app.pinia().save(id)
+  spawn_blocking(move || app.pinia().save(id)).await?
 }
 
 #[tauri::command]
@@ -154,7 +160,7 @@ pub(crate) async fn save_all<R>(app: AppHandle<R>) -> Result<()>
 where
   R: Runtime,
 {
-  app.pinia().save_all()
+  spawn_blocking(move || app.pinia().save_all()).await?
 }
 
 #[tauri::command]
@@ -162,7 +168,7 @@ pub(crate) async fn save_all_now<R>(app: AppHandle<R>) -> Result<()>
 where
   R: Runtime,
 {
-  app.pinia().save_all_now()
+  spawn_blocking(move || app.pinia().save_all_now()).await?
 }
 
 #[tauri::command]
@@ -170,7 +176,7 @@ pub(crate) async fn save_now<R>(app: AppHandle<R>, id: StoreId) -> Result<()>
 where
   R: Runtime,
 {
-  app.pinia().save_now(id)
+  spawn_blocking(move || app.pinia().save_now(id)).await?
 }
 
 #[tauri::command]
@@ -178,7 +184,7 @@ pub(crate) async fn save_some<R>(app: AppHandle<R>, ids: Vec<StoreId>) -> Result
 where
   R: Runtime,
 {
-  app.pinia().save_some(&ids)
+  spawn_blocking(move || app.pinia().save_some(&ids)).await?
 }
 
 #[tauri::command]
@@ -186,7 +192,7 @@ pub(crate) async fn save_some_now<R>(app: AppHandle<R>, ids: Vec<StoreId>) -> Re
 where
   R: Runtime,
 {
-  app.pinia().save_some_now(&ids)
+  spawn_blocking(move || app.pinia().save_some_now(&ids)).await?
 }
 
 #[tauri::command]
@@ -208,9 +214,12 @@ pub(crate) async fn set_save_strategy<R>(
 where
   R: Runtime,
 {
-  app
-    .pinia()
-    .with_store(id, |store| store.set_save_strategy(strategy))
+  spawn_blocking(move || {
+    app
+      .pinia()
+      .with_store(id, |store| store.set_save_strategy(strategy))
+  })
+  .await?
 }
 
 #[tauri::command]
@@ -222,11 +231,14 @@ pub(crate) async fn set_store_options<R>(
 where
   R: Runtime,
 {
-  let app = window.app_handle();
+  let app = window.app_handle().clone();
   let label = window.label().to_owned();
-  app.pinia().with_store(id, move |store| {
-    store.set_options_with_source(options, label)
-  })?
+  spawn_blocking(move || {
+    app.pinia().with_store(id, move |store| {
+      store.set_options_with_source(options, label)
+    })
+  })
+  .await??
 }
 
 #[tauri::command]
@@ -234,5 +246,5 @@ pub(crate) async fn unload<R>(app: AppHandle<R>, id: StoreId) -> Result<()>
 where
   R: Runtime,
 {
-  app.pinia().unload_store(&id)
+  spawn_blocking(move || app.pinia().unload_store(&id)).await?
 }
