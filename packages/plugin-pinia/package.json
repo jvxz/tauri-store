@@ -1,5 +1,5 @@
 {
-  "name": "@jvxz/tauri-store-pinia",
+  "name": "@jamii/tauri-store-pinia",
   "version": "4.2.1-beta.1",
   "description": "Persistent Pinia stores for Tauri",
   "type": "module",
