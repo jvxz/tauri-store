@@ -146,9 +146,7 @@ where
 {
   let app = window.app_handle();
   let label = window.label().to_owned();
-  app
-    .store_collection()
-    .with_store(id, move |store| store.patch_with_source(state, label))?
+  app.store_collection().patch_with_source(id, state, label)
 }
 
 #[tauri::command]
@@ -156,7 +154,7 @@ pub(crate) async fn save<R>(app: AppHandle<R>, id: StoreId) -> Result<()>
 where
   R: Runtime,
 {
-  app.store_collection().save(id)
+  spawn_blocking(move || app.store_collection().save(id)).await?
 }
 
 #[tauri::command]
@@ -164,7 +162,7 @@ pub(crate) async fn save_all<R>(app: AppHandle<R>) -> Result<()>
 where
   R: Runtime,
 {
-  app.store_collection().save_all()
+  spawn_blocking(move || app.store_collection().save_all()).await?
 }
 
 #[tauri::command]
@@ -172,7 +170,7 @@ pub(crate) async fn save_all_now<R>(app: AppHandle<R>) -> Result<()>
 where
   R: Runtime,
 {
-  app.store_collection().save_all_now()
+  spawn_blocking(move || app.store_collection().save_all_now()).await?
 }
 
 #[tauri::command]
@@ -180,7 +178,7 @@ pub(crate) async fn save_now<R>(app: AppHandle<R>, id: StoreId) -> Result<()>
 where
   R: Runtime,
 {
-  app.store_collection().save_now(id)
+  spawn_blocking(move || app.store_collection().save_now(id)).await?
 }
 
 #[tauri::command]
@@ -188,7 +186,8 @@ pub(crate) async fn save_some<R>(app: AppHandle<R>, ids: Vec<StoreId>) -> Result
 where
   R: Runtime,
 {
-  app.store_collection().save_some(&ids)
+  let app = app.clone();
+  spawn_blocking(move || app.store_collection().save_some(&ids)).await?
 }
 
 #[tauri::command]
@@ -196,7 +195,8 @@ pub(crate) async fn save_some_now<R>(app: AppHandle<R>, ids: Vec<StoreId>) -> Re
 where
   R: Runtime,
 {
-  app.store_collection().save_some_now(&ids)
+  let app = app.clone();
+  spawn_blocking(move || app.store_collection().save_some_now(&ids)).await?
 }
 
 #[tauri::command]

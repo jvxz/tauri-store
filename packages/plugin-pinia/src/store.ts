@@ -36,7 +36,8 @@ export class Store extends BaseStore {
 
     this.options = {
       autoStart: options.autoStart ?? DEFAULT_AUTO_START,
-      deep: options.deep ?? true,
+      /** Shallow by default for performance. Set deep: true for nested state sync. */
+      deep: options.deep ?? false,
       filterKeys: options.filterKeys ?? DEFAULT_FILTER_KEYS,
       filterKeysStrategy: options.filterKeysStrategy ?? DEFAULT_FILTER_KEYS_STRATEGY,
       flush: options.flush ?? 'pre',

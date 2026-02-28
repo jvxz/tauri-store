@@ -214,6 +214,25 @@ async fn patch_many() {
   .await;
 }
 
+/// Verifies patch_with_source (two-phase: lock, patch, unlock, then emit/watchers/save)
+/// does not hold the store lock during emit or save, avoiding deadlock under load.
+#[tokio::test]
+async fn patch_with_source_releases_lock_before_emit() {
+  let ((), _permit) = with_store(|store| {
+    store.save_on_change(false);
+    ()
+  })
+  .await;
+
+  HANDLE
+    .store_collection()
+    .patch_with_source(&*STORE_ID, [("key", 42)], Some("main"))
+    .unwrap();
+
+  let state = HANDLE.store_collection().raw_state(&*STORE_ID).unwrap();
+  assert_eq!(state.get_raw("key").unwrap(), &Value::from(42));
+}
+
 #[tokio::test]
 async fn save() {
   with_store(|store| {

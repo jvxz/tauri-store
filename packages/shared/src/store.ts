@@ -28,6 +28,8 @@ export abstract class BaseStore<S extends State = State> {
   protected enabled = false;
   /** Queue of state changes to be processed. */
   protected changeQueue: StateChangePayload<S>[] = [];
+  /** Guard to serialize processChangeQueue and prevent concurrent runs. */
+  private processingQueue = false;
   /** Flushes pending promises. */
   protected readonly flush = flushPromises;
 
@@ -118,16 +120,22 @@ export abstract class BaseStore<S extends State = State> {
   private unlistenOptions: Option<() => void>;
 
   protected async processChangeQueue(): Promise<void> {
-    while (this.changeQueue.length > 0) {
-      await this.flush();
-      const payload = this.changeQueue.pop();
-      if (this.enabled && payload && payload.id === this.id) {
-        this.unwatch?.();
-        this.unwatch = null;
-        this.patchSelf(payload.state);
-        this.changeQueue = [];
-        this.unwatch = this.watch();
+    if (this.processingQueue) return;
+    this.processingQueue = true;
+    try {
+      while (this.changeQueue.length > 0) {
+        await this.flush();
+        const payload = this.changeQueue.pop();
+        if (this.enabled && payload && payload.id === this.id) {
+          this.unwatch?.();
+          this.unwatch = null;
+          this.patchSelf(payload.state);
+          this.changeQueue = [];
+          this.unwatch = this.watch();
+        }
       }
+    } finally {
+      this.processingQueue = false;
     }
   }
 

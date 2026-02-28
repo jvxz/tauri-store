@@ -15,6 +15,14 @@ pub(crate) struct StatePayload<'a> {
   state: &'a StoreState,
 }
 
+/// Owned variant for use after releasing the store lock.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StatePayloadOwned {
+  pub id: StoreId,
+  pub state: StoreState,
+}
+
 impl<'a, R, C> From<&'a Store<R, C>> for StatePayload<'a>
 where
   R: Runtime,
@@ -86,6 +94,7 @@ where
 }
 
 /// Source of a store event.
+#[derive(Clone)]
 pub struct EventSource(Option<String>);
 
 impl EventSource {

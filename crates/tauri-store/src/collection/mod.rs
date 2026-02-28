@@ -5,7 +5,8 @@ mod marker;
 mod table;
 
 use crate::error::Result;
-use crate::event::{emit, STORE_UNLOAD_EVENT};
+use crate::event::{emit, EventSource, STORE_STATE_CHANGE_EVENT, STORE_UNLOAD_EVENT};
+use crate::manager::ManagerExt;
 use crate::migration::Migrator;
 use crate::store::{SaveStrategy, Store, StoreId, StoreResource, StoreState, WatcherId};
 use autosave::Autosave;
@@ -18,6 +19,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use table::{MarshalerTable, PathTable};
+use tauri::async_runtime::spawn_blocking;
 use tauri::{AppHandle, Resource, ResourceId, Runtime};
 
 pub use builder::StoreCollectionBuilder;
@@ -276,6 +278,58 @@ where
     self
       .get_resource(store_id)?
       .locked(|store| store.patch(state))
+  }
+
+  /// Patches a store state with a window source. Performs emit, watchers, and save
+  /// outside the store lock to avoid blocking the async runtime and reduce contention.
+  pub fn patch_with_source<S>(
+    &self,
+    store_id: impl AsRef<str>,
+    state: S,
+    source: impl Into<EventSource>,
+  ) -> Result<()>
+  where
+    S: Into<StoreState>,
+  {
+    let id = StoreId::from(store_id.as_ref());
+    let source: EventSource = source.into();
+
+    let (payload, watchers, save_on_change, save_strategy_immediate) = self
+      .get_resource(&id)?
+      .locked(|store| store.apply_patch_and_capture(state));
+
+    if !source.is_backend() && self.sync_denylist.contains(&id) {
+      return Ok(());
+    }
+
+    emit(self.handle.app(), STORE_STATE_CHANGE_EVENT, &payload, source)?;
+
+    if !watchers.is_empty() {
+      let app = self.handle.app().clone();
+      spawn_blocking(move || {
+        for watcher in watchers {
+          watcher.call(app.clone());
+        }
+      });
+    }
+
+    if save_on_change {
+      let app = self.handle.app().clone();
+      let id_clone = id.clone();
+      if save_strategy_immediate {
+        spawn_blocking(move || {
+          let _ = app
+            .store_collection_with_marker::<C>()
+            .save_now(&id_clone);
+        });
+      } else {
+        spawn_blocking(move || {
+          let _ = app.store_collection_with_marker::<C>().save(&id_clone);
+        });
+      }
+    }
+
+    Ok(())
   }
 
   /// Saves a store to the disk.

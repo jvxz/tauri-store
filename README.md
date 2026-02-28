@@ -87,3 +87,38 @@ pnpm run example random
 ## Supported Tauri Version
 
 The plugins require Tauri `2.0` or later.
+
+## Using this fork instead of published crates/packages
+
+To consume this repo in your app instead of the published `tauri-store` and `tauri-plugin-pinia` crates:
+
+**Rust (Cargo.toml):** Add a `[patch.crates-io]` section. Use `path` because the crates live in subdirs:
+
+```toml
+[patch.crates-io]
+tauri-store = { git = "https://github.com/YOUR_USER/tauri-store", path = "crates/tauri-store" }
+tauri-plugin-pinia = { git = "https://github.com/YOUR_USER/tauri-store", path = "crates/plugin-pinia" }
+```
+
+Pin to a specific commit or tag for reproducible builds:
+
+```toml
+[patch.crates-io]
+tauri-store = { git = "https://github.com/YOUR_USER/tauri-store", rev = "abc1234", path = "crates/tauri-store" }
+tauri-plugin-pinia = { git = "https://github.com/YOUR_USER/tauri-store", rev = "abc1234", path = "crates/plugin-pinia" }
+```
+
+**Node (package.json):** Clone this repo alongside your app and use `pnpm.overrides` with `link:`:
+
+```json
+{
+  "pnpm": {
+    "overrides": {
+      "@tauri-store/pinia": "link:../tauri-store/packages/plugin-pinia",
+      "@tauri-store/shared": "link:../tauri-store/packages/shared"
+    }
+  }
+}
+```
+
+Run `pnpm run build` in the tauri-store repo before building your app. Keep Cargo and pnpm pointing to the same fork revision.

@@ -22,6 +22,8 @@ export const DEFAULT_SAVE_STRATEGY: Required<StoreOptions>['saveStrategy'] = 'im
 
 export const DEFAULT_SYNC: Required<StoreOptions>['sync'] = true;
 
-export const DEFAULT_SYNC_INTERVAL: Required<StoreOptions>['syncInterval'] = 0;
+/** Default 50ms debounce for multi-window sync to reduce backend load. Set syncInterval: 0 for immediate. */
+export const DEFAULT_SYNC_INTERVAL: Required<StoreOptions>['syncInterval'] = 50;
 
-export const DEFAULT_SYNC_STRATEGY: Required<StoreOptions>['syncStrategy'] = 'immediate';
+/** Debounce by default for high-throughput multi-window workloads. Use 'immediate' for low-churn stores. */
+export const DEFAULT_SYNC_STRATEGY: Required<StoreOptions>['syncStrategy'] = 'debounce';

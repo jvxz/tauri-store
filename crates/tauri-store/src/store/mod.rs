@@ -463,6 +463,31 @@ where
     )
   }
 
+  /// Applies a patch and captures data needed for post-patch work (emit, watchers, save).
+  /// Call this under lock, then release the lock before using the result for emit/watchers/save.
+  pub(crate) fn apply_patch_and_capture<S>(
+    &mut self,
+    state: S,
+  ) -> (
+    crate::event::StatePayloadOwned,
+    Vec<Watcher<R>>,
+    bool,
+    bool,
+  )
+  where
+    S: Into<StoreState>,
+  {
+    self.state.patch(state);
+    let payload = crate::event::StatePayloadOwned {
+      id: self.id.clone(),
+      state: self.raw_state().clone(),
+    };
+    let watchers: Vec<_> = self.watchers.values().cloned().collect();
+    let save_on_change = self.save_on_change;
+    let save_strategy_immediate = matches!(self.save_strategy(), SaveStrategy::Immediate);
+    (payload, watchers, save_on_change, save_strategy_immediate)
+  }
+
   /// Calls all watchers currently attached to the store.
   fn call_watchers(&self) {
     if self.watchers.is_empty() {
